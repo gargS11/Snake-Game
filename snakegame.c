@@ -1,9 +1,8 @@
-//SNAKE GAME NEW WITH HASHING
+ //SNAKE GAME FINAL INCLUDING HASHING AND HAVING OPTION OF SAVING A FILE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <conio.h>
 int R = 18;
 int C = 24; 
 struct snake{
@@ -23,8 +22,7 @@ struct hashtable{
   int count;
   struct node *head;
 };
-void displayMatrix(char matrix[R][C])
-{
+void displayMatrix(char matrix[R][C]){
   int i, j;
   for(i = 0; i < R; i++)
   {
@@ -70,15 +68,15 @@ void transferSnakeToHash(struct snake *shead, struct hashtable *htable){
     ptr = ptr->next;
   }
 }
-int checkCollision(struct hashtable *htable, struct snake *shead){
-  int key = shead->x + shead->y;
+int checkCollision(struct hashtable *htable, int x, int y){
+  int key = x + y;
   if(htable[key].count > 0)
   {
     struct node *ptr;
     ptr = htable[key].head;
     while(ptr != NULL)
     {
-      if(ptr->x == shead->x && ptr->y == shead->y){
+      if(ptr->x == x && ptr->y == y){
 	    return 0;
       }
       ptr = ptr->next;
@@ -150,48 +148,54 @@ struct snake* changeSnakeDirection(struct hashtable *htable,struct snake *shead,
     shead = insertNode(shead, prevx, prevy);
   return shead;
 }
-int insertfood(char *str, int f, int i){
-  str[i++] = f/10 + 48;
-  str[i++] = f%10 + 48;
-  return i;
+int inserttemp(char *str, char *temp, int i){
+	int l = strlen(temp) - 1;
+	while(l >= 0)
+	{
+		str[i++] = temp[l];
+		l--;
+	}
+	str[i++] = ',';
+	return i;
 }
-void savegame(struct snake *shead, struct food sfood, FILE *fil){
+void gettemp(int n, char *temp){
+	int j = 0;
+	while(n){
+		temp[j++] = n%10 + '0';
+		n = n/10;
+	}
+	temp[j] = '\0';
+}
+void savegame(struct snake *shead, struct food sfood,int score,FILE *fil){
   char str[2000];
+  char temp[10];
   int i = 0;
-  str[i++] = 'f';
-  if(sfood.x  < 10)
-    str[i++] = sfood.x + 48;
-  else
-    i = insertfood(str, sfood.x, i);
-  str[i++] = ',';
-  if(sfood.y  < 10)
-    str[i++] = sfood.y + 48;
-  else
-    i = insertfood(str, sfood.y, i);
-  str[i++] = ',';
-  str[i++] = 's';
+  str[i++] = 'S';      //Starting saving Score
+  gettemp(score, temp);
+  i = inserttemp(str, temp, i);
+  
+  str[i++] = 'f';      //Starting saving Food 
+  gettemp(sfood.x, temp);
+  i = inserttemp(str, temp, i);
+  gettemp(sfood.y, temp);
+  i = inserttemp(str, temp, i);
+  
+  str[i++] = 's';      //Starting saving Snake
   struct snake *ptr;
   ptr = shead;
-  while(ptr != NULL)
-  {
-    if(ptr->x  < 10)
-      str[i++] = ptr->x + 48;
-    else
-      i = insertfood(str, ptr->x, i);
-    str[i++] = ',';
-    if(ptr->y  < 10)
-      str[i++] = ptr->y + 48;
-    else
-      i = insertfood(str, ptr->y, i);
-    str[i++] = ',';
+  while(ptr != NULL){
+    gettemp(ptr->x, temp);
+    i = inserttemp(str, temp, i);
+    gettemp(ptr->y, temp);
+    i = inserttemp(str, temp, i);
     str[i++] = '#';
     ptr = ptr->next;
   }
   str[i] = '\0';
   fil = fopen("snake.txt", "w");
-  fprintf(fil, str);
+  fprintf(fil, "%s", str);
   fclose(fil);
-  printf("%s\n", str);
+  //printf("%s\n", str);
 }
 void transferFoodToMatrix(char matrix[R][C], struct food sfood){
   matrix[sfood.x][sfood.y] = sfood.value;
@@ -223,7 +227,7 @@ int getnum(char *str, int *i){
   *i += 1;
   return k;
 }
-struct snake* getSavedSnake(char matrix[R][C],struct snake *shead, char *str){
+struct snake* getSavedSnake(struct snake *shead, char *str){
   int i = 0, a, b;
   while(str[i] != 's')
     i++;
@@ -238,8 +242,10 @@ struct snake* getSavedSnake(char matrix[R][C],struct snake *shead, char *str){
   }
   return shead;
 }
-struct food getSavedFood(char matrix[R][C], struct food sfood, char *str){
+struct food getSavedFood(struct food sfood, char *str){
   int i = 0, a, b;
+  while(str[i] != 'f')
+    i++;
   if(str[i++] == 'f'){
       sfood.x = getnum(str, &i);
       sfood.y = getnum(str, &i);
@@ -247,10 +253,15 @@ struct food getSavedFood(char matrix[R][C], struct food sfood, char *str){
   }
   return sfood;
 }
+int getSavedScore(char *str){
+  int i = 0;
+  if(str[i++] == 'S')
+    return getnum(str, &i);
+}
 struct food createFood(struct food sfood){
 	srand(time(0));
-	sfood.x = rand() % R-1;
-	sfood.y = rand() % C-1;
+	sfood.x = rand() % R-2;
+	sfood.y = rand() % C-2;
 	sfood.value = '*';
 	return sfood;
 }
@@ -299,7 +310,6 @@ int main()
   {
     shead = initSnake(shead);
     transferSnakeToMatrix(matrix, shead);
-    //sfood = initFood(sfood);
     do{
        sfood = createFood(sfood);
     }while(matrix[sfood.x][sfood.y] != ' ');
@@ -312,8 +322,9 @@ int main()
         char str[2000];
         fscanf(fil, "%[^\n]s", str);
         fclose(fil);
-        sfood = getSavedFood(matrix, sfood, str);
-        shead = getSavedSnake(matrix, shead, str);
+        score = getSavedScore(str);
+        sfood = getSavedFood(sfood, str);
+        shead = getSavedSnake(shead, str);
         transferFoodToMatrix(matrix, sfood);
     	transferSnakeToMatrix(matrix, shead);
     }
@@ -337,7 +348,7 @@ int main()
     system("cls");
     if(direction == 's')
     {
-      savegame(shead, sfood, fil);
+      savegame(shead, sfood, score, fil);
       printf("..........GAME SAVED................");
       break;
     }
@@ -351,16 +362,21 @@ int main()
       	 score += 2;
          shead = changeSnakeDirection(htable,shead, direction, matrix, 0);
          sfood = createFood(sfood);
-         while(matrix[sfood.x][sfood.y] != ' ')
-           sfood = createFood(sfood);
-         transferFoodToMatrix(matrix, sfood);
+         while(1){
+           if(checkCollision(htable,sfood.x,sfood.y)&&sfood.x >0 && sfood.y >0){
+             break;
+           }
+           else
+             sfood = createFood(sfood);
+         }
+        transferFoodToMatrix(matrix, sfood);
       }
       else{
         shead = changeSnakeDirection(htable, shead, direction, matrix, 1);
       }
       transferSnakeToMatrix(matrix, shead);
       
-      if(checkCollision(htable, shead)){
+      if(checkCollision(htable, shead->x, shead->y)){
 	     printf("\n SCORE:%d\n", score);
 	     displayMatrix(matrix);
       }
